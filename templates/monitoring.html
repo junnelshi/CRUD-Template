@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Monitoring{% endblock %}
+{% block content %}
+
+<h1>Monitoring</h1>
+
+<div class="card">
+    <form method="GET" action="{{ url_for('monitoring') }}" class="search-form">
+        <label for="groupID">Filter by group:</label>
+        <select name="groupID" id="groupID" onchange="this.form.submit()">
+            <option value="">All groups</option>
+            {% for g in groups %}
+            <option value="{{ g['groupID'] }}" {% if selected_group and g['groupID']|string == selected_group %}selected{% endif %}>
+                {{ g['groupName'] }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="stat-row">
+    <div class="stat-card">
+        <span class="stat-label">Count</span>
+        <span class="stat-value">{{ count }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Total paid</span>
+        <span class="stat-value">{{ "%.2f"|format(total_paid) }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Total discount</span>
+        <span class="stat-value">{{ "%.2f"|format(total_discount) }}</span>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Group</th><th>Person</th><th>Date</th><th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>{{ r['groupName'] }}</td>
+                <td>{{ r['personFName'] }} {{ r['personLName'] }}</td>
+                <td>{{ r['entryDate'] }}</td>
+                <td>{{ "%.2f"|format(r['entryAmount']) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty-row">No records to display.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

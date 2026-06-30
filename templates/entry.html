@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Entry{% endblock %}
+{% block content %}
+
+<h1>Entry</h1>
+
+<div class="card">
+    <h2>Add new</h2>
+    <form method="POST" action="{{ url_for('entry_page') }}" class="form-grid">
+        <div>
+            <label>Person</label>
+            <select name="personID" required>
+                <option value="" disabled selected>Select a person</option>
+                {% for p in persons %}
+                <option value="{{ p['personID'] }}">{{ p['personFName'] }} {{ p['personLName'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Payment mode</label>
+            <select name="entryMode" required>
+                <option value="Cash">Cash</option>
+                <option value="Card">Card</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+    <p class="muted">The amount is computed automatically in app.py from the
+       person's rate and their group's fee — there's no amount field to fill in.</p>
+</div>
+
+<div class="card">
+    <h2>All records (latest first)</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th><th>Person</th><th>Date</th><th>Amount</th><th>Mode</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entries %}
+            <tr>
+                <td>{{ e['entryID'] }}</td>
+                <td>{{ e['personID'] }}</td>
+                <td>{{ e['entryDate'] }}</td>
+                <td>{{ "%.2f"|format(e['entryAmount']) }}</td>
+                <td>{{ e['entryMode'] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="empty-row">No records yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Category{% endblock %}
+{% block content %}
+
+<h1>Category</h1>
+
+<div class="card">
+    <h2>Add new</h2>
+    <form method="POST" action="{{ url_for('group_page') }}" class="form-grid">
+        <div>
+            <label>Name</label>
+            <input type="text" name="groupName" required>
+        </div>
+        <div>
+            <label>Date</label>
+            <input type="date" name="groupDate" required>
+        </div>
+        <div>
+            <label>Place</label>
+            <input type="text" name="groupPlace" required>
+        </div>
+        <div>
+            <label>Fee</label>
+            <input type="number" step="0.01" name="groupFee" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header-row">
+        <h2>All records</h2>
+        <form method="GET" action="{{ url_for('group_page') }}" class="search-form">
+            <input type="text" name="search" placeholder="Search by name..." value="{{ request.args.get('search', '') }}">
+            <button type="submit" class="btn btn-secondary">Search</button>
+        </form>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th><th>Name</th><th>Date</th><th>Place</th><th>Fee</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in groups %}
+            <tr>
+                <form method="POST" action="{{ url_for('edit_group', groupID=g['groupID']) }}">
+                    <td>{{ g['groupID'] }}</td>
+                    <td><input type="text" name="groupName" value="{{ g['groupName'] }}"></td>
+                    <td><input type="date" name="groupDate" value="{{ g['groupDate'] }}"></td>
+                    <td><input type="text" name="groupPlace" value="{{ g['groupPlace'] }}"></td>
+                    <td><input type="number" step="0.01" name="groupFee" value="{{ g['groupFee'] }}"></td>
+                    <td class="row-actions">
+                        <button type="submit" class="btn btn-small btn-primary">Update</button>
+                        <a href="{{ url_for('delete_group_route', groupID=g['groupID']) }}"
+                           class="btn btn-small btn-danger"
+                           data-confirm="Delete this record?">Delete</a>
+                    </td>
+                </form>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="empty-row">No records yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
