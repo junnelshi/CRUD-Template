@@ -1,41 +1,19 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or "CRUD Practice" }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
-    {% if session.get('user_id') %}
-    <nav class="navbar">
-        <div class="navbar-brand">{{ SITE_NAME }}</div>
-        <div class="navbar-links">
-            <a href="{{ url_for('group_page') }}">Group</a>
-            <a href="{{ url_for('person_page') }}">Person</a>
-            <a href="{{ url_for('entry_page') }}">Entry</a>
-            <a href="{{ url_for('monitoring') }}">Monitoring</a>
-            <a href="{{ url_for('account') }}">My Account</a>
-        </div>
-        <a href="{{ url_for('logout') }}" class="navbar-logout">Logout</a>
-    </nav>
-    {% endif %}
-
-    <main class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-stack">
-                    {% for category, message in messages %}
-                        <div class="flash flash-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-
+    <main>
+        <nav>
+            {% for key, item in tables.items() %}<a href="{{ url_for('records', table=key) }}">{{ item.title }}</a>{% endfor %}
+            <a href="{{ url_for('borrowing') }}">Borrow / Return</a>
+        </nav>
+        {% for message in get_flashed_messages() %}<p class="message">{{ message }}</p>{% endfor %}
         {% block content %}{% endblock %}
     </main>
-
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

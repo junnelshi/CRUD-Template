@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+library.db
+database.db
+sqlite3.exe

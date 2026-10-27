@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <h3>Add {{ info.title[:-1] }}</h3>
+    <form method="post" class="fields" id="record-form">
+        <input type="hidden" name="record_id" value="">
+        {% for field in info.fields %}
+        <label>{{ field.label }}
+            {% if field.choice %}
+            <select name="{{ field.name }}" required>
+                <option value="">Choose {{ field.label.lower() }}</option>
+                {% for choice in choices[field.name] %}
+                <option value="{{ choice[field.choice_id] }}">{{ choice_names[field.name][choice[field.choice_id]|string] }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input name="{{ field.name }}" type="{{ field.type or 'text' }}" required
+                   {% if field.letters_only %}pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+" title="Use letters only"{% endif %}>
+            {% endif %}
+        </label>
+        {% endfor %}
+        <button type="submit" id="save-button">Save</button>
+        <button type="button" id="cancel-button" hidden>Cancel</button>
+    </form>
+</section>
+
+<section>
+    <h3>Records</h3>
+    <form method="get" class="search">
+        <input name="search" value="{{ search }}" placeholder="Search">
+        <button type="submit">Search</button>
+        <a href="{{ url_for('records', table=table) }}">Show all</a>
+    </form>
+    <div class="table-scroll"><table>
+        <thead><tr><th>ID</th>{% for field in info.fields %}<th>{{ field.label }}</th>{% endfor %}<th>Actions</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+            <tr>
+                <td>{{ row[info.id] }}</td>
+                {% for field in info.fields %}<td>
+                    {% if field.choice %}{{ choice_names[field.name][row[field.name]|string] }}
+                    {% else %}{{ row[field.name] }}{% endif %}
+                </td>{% endfor %}
+                <td class="actions">
+                    <button type="button" class="edit-button"
+                            data-id="{{ row[info.id] }}"
+                            data-values='{{ row_values[row[info.id]] | tojson }}'>Edit</button>
+                    <form method="post" action="{{ url_for('delete', table=table, record_id=row[info.id]) }}"
+                          onsubmit="return confirm('Delete this record?')">
+                        <button type="submit" class="delete">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}<tr><td colspan="{{ info.fields|length + 2 }}">No records found.</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
+</section>
+
+<script>
+    const form = document.querySelector("#record-form");
+    const saveButton = document.querySelector("#save-button");
+    const cancelButton = document.querySelector("#cancel-button");
+
+    document.querySelectorAll(".edit-button").forEach(button => {
+        button.addEventListener("click", () => {
+            const values = JSON.parse(button.dataset.values);
+            for (const name in values) form.elements[name].value = values[name];
+            form.elements.record_id.value = button.dataset.id;
+            saveButton.textContent = "Update";
+            cancelButton.hidden = false;
+            form.scrollIntoView({ behavior: "smooth" });
+        });
+    });
+
+    cancelButton.addEventListener("click", () => {
+        form.reset();
+        form.elements.record_id.value = "";
+        saveButton.textContent = "Save";
+        cancelButton.hidden = true;
+    });
+</script>
+{% endblock %}

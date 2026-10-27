@@ -1,0 +1,342 @@
+SKILLS TEST PRACTICE: PYTHON FUNCTIONS + SQLITE INQUIRIES
+=========================================================
+
+This is a study guide, not part of the CRUD app. It shows common function and
+database inquiry patterns like the ones visible in the sample skills tests.
+The examples use a clinic database with Doctor, Patient, and Consultation
+tables. Read the explanations, then try changing the search values yourself.
+
+Important: The actual Thursday test may use different tables or requirements.
+Practice understanding the patterns so you can adapt them.
+
+
+1. WHAT IS A FUNCTION?
+----------------------
+
+A function is a named block of code that does one job. It can receive values
+(parameters) and give a result back with return.
+
+    def add_numbers(first, second):
+        total = first + second
+        return total
+
+    answer = add_numbers(3, 4)
+    print(answer)  # 7
+
+For database work, a function can receive a search value, ask SQLite for rows,
+and return those rows to the part of the program that displays them.
+
+
+2. CONNECT TO A SQLITE DATABASE
+-------------------------------
+
+Python includes the sqlite3 module. Replace the filename with the database file
+provided for your test. Keep the database file in the same folder as this code,
+or provide its full path.
+
+    import sqlite3
+
+    def connect_to_database():
+        connection = sqlite3.connect("Clinic.db")
+        connection.row_factory = sqlite3.Row
+        return connection
+
+`sqlite3.Row` lets you read a result by column name, for example row["docFName"].
+
+
+3. SEARCH DOCTORS BY SPECIALIZATION
+-----------------------------------
+
+Example requirement: display every doctor whose specialization matches a
+search phrase. The question mark is a placeholder. Passing values separately
+helps avoid SQL injection and quoting errors.
+
+    def find_doctors_by_specialization(search_text):
+        sql = """
+            SELECT docID, docFName, docLName, docSpecial
+            FROM Doctor
+            WHERE docSpecial LIKE ?
+            ORDER BY docLName, docFName
+        """
+
+        with connect_to_database() as connection:
+            rows = connection.execute(
+                sql, ("%" + search_text + "%",)
+            ).fetchall()
+
+        return rows
+
+The percent signs mean “any characters before or after this text.” For
+example, searching for "cardio" can match "Cardiology". The comma after the
+parameter expression makes it a one-item tuple, which sqlite3 expects.
+
+
+4. SEARCH PATIENTS WITHIN AN AGE RANGE
+--------------------------------------
+
+If the test stores date of birth, calculate age from the birth date. This
+example compares the birth date to a cutoff date. It avoids relying on a
+non-standard SQLite AGE() function.
+
+    from datetime import date
+
+    def find_patients_by_age(min_age, max_age):
+        if min_age < 0 or max_age < min_age:
+            raise ValueError("Enter a valid age range.")
+
+        today = date.today()
+        # A person is at least min_age if born on or before this cutoff.
+        oldest_birth_date = date(
+            today.year - min_age, today.month, min(today.day, 28)
+        )
+        # A person is no older than max_age if born after this cutoff.
+        youngest_birth_date = date(
+            today.year - max_age - 1, today.month, min(today.day, 28)
+        )
+
+        sql = """
+            SELECT patID, patFName, patLName, patBirthDate
+            FROM Patient
+            WHERE patBirthDate <= ? AND patBirthDate > ?
+            ORDER BY patBirthDate
+        """
+
+        with connect_to_database() as connection:
+            rows = connection.execute(
+                sql, (oldest_birth_date.isoformat(),
+                      youngest_birth_date.isoformat())
+            ).fetchall()
+
+        return rows
+
+Age/date calculations have edge cases around birthdays and leap days. If the
+test provides an age column, use that column instead and keep the SQL simple:
+
+    SELECT * FROM Patient WHERE age BETWEEN ? AND ?
+
+`BETWEEN` includes both endpoints. Always check the actual field names/schema
+provided in the test.
+
+
+5. FIND CONSULTATIONS FOR ONE PATIENT OR DOCTOR (JOIN)
+-----------------------------------------------------
+
+Consultation rows store IDs. A JOIN connects those IDs to the doctor and
+patient names so the result is readable.
+
+    def consultations_for_patient(patient_id):
+        sql = """
+            SELECT c.consultID, c.consultDate, c.diagnosis, c.prescription,
+                   p.patFName, p.patLName,
+                   d.docFName, d.docLName, d.docSpecial
+            FROM Consultation AS c
+            JOIN Patient AS p ON p.patID = c.patID
+            JOIN Doctor AS d ON d.docID = c.docID
+            WHERE c.patID = ?
+            ORDER BY c.consultDate DESC
+        """
+
+        with connect_to_database() as connection:
+            rows = connection.execute(sql, (patient_id,)).fetchall()
+
+        return rows
+
+For consultations for a doctor, change the condition to `WHERE c.docID = ?`
+and pass the doctor ID. The table aliases `c`, `p`, and `d` are short names
+that make the query easier to read.
+
+
+6. FIND CONSULTATIONS IN A DATE RANGE
+-------------------------------------
+
+This example assumes consultDate is saved in a sortable ISO format such as
+YYYY-MM-DD or YYYY-MM-DD HH:MM:SS.
+
+    def consultations_between(start_date, end_date):
+        if start_date > end_date:
+            raise ValueError("Start date must be before end date.")
+
+        sql = """
+            SELECT consultID, patID, docID, consultDate, diagnosis
+            FROM Consultation
+            WHERE consultDate >= ? AND consultDate < ?
+            ORDER BY consultDate
+        """
+
+        with connect_to_database() as connection:
+            rows = connection.execute(
+                sql, (start_date, end_date)
+            ).fetchall()
+
+        return rows
+
+For a date-only end date, a common approach is to pass the day after the
+requested end date as the exclusive end value. Example: for all of June 10,
+use start "2026-06-10" and exclusive end "2026-06-11". This also includes
+times later on June 10 when dates are stored with a time.
+
+
+7. COUNT RESULTS (AGGREGATE FUNCTION)
+-------------------------------------
+
+SQL COUNT counts matching rows. It returns one result row containing the
+number. `COUNT(*)` counts all matching rows, even if a particular column is
+NULL.
+
+Count all consultations for one patient:
+
+    def count_patient_consultations(patient_id):
+        sql = """
+            SELECT COUNT(*) AS total
+            FROM Consultation
+            WHERE patID = ?
+        """
+
+        with connect_to_database() as connection:
+            row = connection.execute(sql, (patient_id,)).fetchone()
+
+        return row["total"]
+
+Count consultations for each doctor:
+
+    def count_consultations_per_doctor():
+        sql = """
+            SELECT d.docID, d.docFName, d.docLName,
+                   COUNT(c.consultID) AS consultation_count
+            FROM Doctor AS d
+            LEFT JOIN Consultation AS c ON c.docID = d.docID
+            GROUP BY d.docID, d.docFName, d.docLName
+            ORDER BY consultation_count DESC, d.docLName
+        """
+
+        with connect_to_database() as connection:
+            rows = connection.execute(sql).fetchall()
+
+        return rows
+
+Why LEFT JOIN? It keeps doctors who have zero consultations. With an ordinary
+JOIN, doctors with no consultations would disappear from the result. COUNT of
+the consultation ID is zero for those doctors.
+
+
+8. DISPLAY RESULTS AND HANDLE NO MATCHES
+----------------------------------------
+
+Keep fetching data separate from displaying it. This makes functions easier
+to reuse and test.
+
+    def print_doctors(rows):
+        if not rows:
+            print("No doctors found.")
+            return
+
+        for doctor in rows:
+            print(
+                doctor["docID"],
+                doctor["docFName"],
+                doctor["docLName"],
+                doctor["docSpecial"]
+            )
+
+    doctors = find_doctors_by_specialization("heart")
+    print_doctors(doctors)
+
+`if not rows` checks whether the list is empty. `return` exits the function so
+the loop is not run when there is nothing to display.
+
+
+9. THE SAME IDEAS FOR THE LIBRARY TABLES
+----------------------------------------
+
+The sample library test uses Author, Book, Student, and BorrowedBook. These
+queries show how to adapt the patterns to those names.
+
+Count available copies of one book. This assumes `bookCopies` means total
+copies and every active loan has a BorrowedBook row with status 'Borrowed'.
+Adjust the status text if the supplied database uses a different value.
+
+    def available_copies(book_id):
+        sql = """
+            SELECT b.bookID,
+                   b.bookCopies - COUNT(bb.borrowID) AS available
+            FROM Book AS b
+            LEFT JOIN BorrowedBook AS bb
+              ON bb.bookID = b.bookID AND bb.status = 'Borrowed'
+            WHERE b.bookID = ?
+            GROUP BY b.bookID, b.bookCopies
+        """
+
+        with connect_to_database() as connection:
+            row = connection.execute(sql, (book_id,)).fetchone()
+
+        if row is None:
+            return None
+        return max(0, row["available"])
+
+Show currently borrowed books with student and book names:
+
+    def currently_borrowed_books():
+        sql = """
+            SELECT bb.borrowID, s.studFName, s.studLName,
+                   b.bookTitle, bb.status
+            FROM BorrowedBook AS bb
+            JOIN Student AS s ON s.studID = bb.studID
+            JOIN Book AS b ON b.bookID = bb.bookID
+            WHERE bb.status = ?
+            ORDER BY s.studLName, b.bookTitle
+        """
+
+        with connect_to_database() as connection:
+            return connection.execute(sql, ("Borrowed",)).fetchall()
+
+
+10. COMMON SQL PATTERNS TO REMEMBER
+----------------------------------
+
+Exact match:
+    WHERE docID = ?
+
+Partial text match:
+    WHERE docSpecial LIKE ?
+    Parameter example: ("%heart%",)
+
+Range (both ends included):
+    WHERE some_number BETWEEN ? AND ?
+
+Date/time range:
+    WHERE consultDate >= ? AND consultDate < ?
+
+Count matching rows:
+    SELECT COUNT(*) FROM Consultation WHERE patID = ?
+
+Count rows in each group:
+    SELECT docID, COUNT(*) FROM Consultation GROUP BY docID
+
+Sort newest first:
+    ORDER BY consultDate DESC
+
+Join related tables:
+    FROM Consultation c
+    JOIN Patient p ON p.patID = c.patID
+
+Always pass user-provided values through `?` placeholders. Do not put typed
+input directly into the SQL string.
+
+
+11. QUICK PRACTICE BEFORE THE TEST
+----------------------------------
+
+Try writing each one from memory, then compare with the examples above:
+
+1. Write a function that returns doctors for one specialization.
+2. Write a function that returns consultations for one doctor ID.
+3. Add a date range to the consultation search.
+4. Count all consultations for a patient ID.
+5. Count consultations per doctor, including doctors with zero consultations.
+6. Display "No results found" when a query returns no rows.
+7. Explain why SQL uses `?` placeholders and why a LEFT JOIN is useful for
+   counting zero-related records.
+
+Remember the usual flow:
+    define function -> build SQL -> connect -> execute with parameters
+    -> fetch rows -> return rows -> display rows

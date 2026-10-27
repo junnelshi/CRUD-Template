@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Borrowing</h2>
+<section>
+    <h3>Check availability and borrow</h3>
+    <form method="post" class="fields">
+        <label>Student<select name="studID" required>
+            <option value="">Choose a student</option>
+            {% for student in students %}<option value="{{ student.studID }}">{{ student.studFName }} {{ student.studLName }}</option>{% endfor %}
+        </select></label>
+        <label>Book<select name="bookID" required>
+            <option value="">Choose an available book</option>
+            {% for book in books %}<option value="{{ book.bookID }}" {% if book.available < 1 %}disabled{% endif %}>{{ book.bookTitle }} — {{ book.available }} available</option>{% endfor %}
+        </select></label>
+        <button>Borrow</button>
+    </form>
+</section>
+<section>
+    <h3>Borrowing records</h3>
+    <form method="get" class="search">
+        <label>Show <select name="status" onchange="this.form.submit()">
+            {% for option in ['Borrowed', 'Returned', 'All'] %}<option value="{{ option }}" {% if status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+        </select></label>
+    </form>
+    <div class="table-scroll"><table>
+        <thead><tr><th>ID</th><th>Student</th><th>Book</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>{% for record in records %}
+            <tr><td>{{ record.borrowID }}</td><td>{{ record.studFName }} {{ record.studLName }}</td><td>{{ record.bookTitle }}</td><td>{{ record.status }}</td>
+                <td>{% if record.status == 'Borrowed' %}<form method="post" action="{{ url_for('return_book', borrow_id=record.borrowID) }}"><button>Return</button></form>{% endif %}</td>
+            </tr>
+        {% else %}<tr><td colspan="5">No records.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+{% endblock %}
