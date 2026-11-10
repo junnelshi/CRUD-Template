@@ -1,25 +1,30 @@
 import sqlite3
 from pathlib import Path
 
-DB_FILE = Path(__file__).with_name("Library.db")
+from django.db.models import sql
+
+DB_FILE = Path(__file__).with_name("Event.db")
 
 TABLES = {
-    "author": {"title": "authors", "sql_table": "Author", "id": "authID", "fields": [
-        {"name": "authLName", "label": "Last Name", "letters_only": True},
-        {"name": "authFName", "label": "First Name", "letters_only": True},
-        {"name": "authMName", "label": "Middle Name", "letters_only": True},
+    "participant": {"title": "participants", "sql_table": "Participant", "id": "partID", "fields": [
+            {"name": "evCode", "label": "Event", "type": "choice", "choice": "event", "choice_id": "evCode", "choice_label": "evName"},
+            {"name": "partFName", "label": "First Name", "letters_only": True},
+            {"name": "partLName", "label": "Last Name", "letters_only": True},
+            {"name": "partDRate", "label": "Discount Rate", "type": "decimal"},
     ]},
 
-    "book": {"title": "books", "sql_table": "Book", "id": "bookID", "fields": [
-        {"name": "bookTitle", "label": "Title", "type": "text"},
-        {"name": "bookCopies", "label": "Copies", "type": "number"},
-        {"name": "authID", "label": "Author", "type": "choice", "choice": "author", "choice_id": "authID", "choice_label": "authFName"},
+    "event": {"title": "events", "sql_table": "Event", "id": "evCode", "fields": [
+            {"name": "evName", "label": "Event Name", "letters_only": True},
+            {"name": "evDate", "label": "Event Date", "type": "date"},
+            {"name": "evVenue", "label": "Event Venue", "type": "text"},
+            {"name": "evRFee", "label": "Registration Fee", "type": "decimal"},
     ]},
 
-    "student": {"title": "students", "sql_table": "Student", "id": "studID", "fields": [
-            {"name": "studFName", "label": "First Name", "letters_only": True},
-            {"name": "studMName", "label": "Middle Name", "letters_only": True},
-            {"name": "studLName", "label": "Last Name", "letters_only": True},
+    "registration": {"title": "registrations", "sql_table": "Registration", "id": "regCode", "fields": [
+            {"name": "partID", "label": "Participant", "type": "choice", "choice": "participant", "choice_id": "partID", "choice_label": "partFName", "choice_display": ["partFName", "partLName"]},
+            {"name": "regDate", "label": "Registration Date", "type": "date"},
+            {"name": "regFPaid", "label": "Fee Paid", "type": "decimal"},
+            {"name": "regPMode", "label": "Discount Rate", "type": "text"},
         ]},
 
 }
@@ -35,25 +40,29 @@ def connect():
 def init_db():
     with connect() as db:
         db.executescript("""
-            CREATE TABLE IF NOT EXISTS Author (
-                authID INTEGER PRIMARY KEY AUTOINCREMENT,
-                authLName TEXT NOT NULL,
-                authFName TEXT NOT NULL,
-                authMName TEXT NOT NULL
+            CREATE TABLE IF NOT EXISTS Participant (
+                partID INTEGER PRIMARY KEY AUTOINCREMENT,
+                evCode INTEGER NOT NULL,
+                partFName TEXT NOT NULL,
+                partLName TEXT NOT NULL,
+                partDRate DECIMAL NOT NULL,
+                FOREIGN KEY (evCode) REFERENCES Event(evCode)
             );
-            CREATE TABLE IF NOT EXISTS Book (
-                bookID INTEGER PRIMARY KEY AUTOINCREMENT,
-                bookTitle TEXT NOT NULL,
-                bookCopies INTEGER NOT NULL,
-                authID INTEGER NOT NULL,
-                FOREIGN KEY (authID) REFERENCES Author(authID)
+            CREATE TABLE IF NOT EXISTS Event (
+                evCode INTEGER PRIMARY KEY AUTOINCREMENT,
+                evName TEXT NOT NULL,
+                evDate DATE NOT NULL,
+                evVenue TEXT NOT NULL,
+                evRFee DECIMAL NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS Student (
-                studID INTEGER PRIMARY KEY AUTOINCREMENT,
-                studFName TEXT NOT NULL,
-                studMName TEXT NOT NULL,
-                studLName TEXT NOT NULL
+            CREATE TABLE IF NOT EXISTS Registration (
+                regCode INTEGER PRIMARY KEY AUTOINCREMENT,
+                partID INTEGER NOT NULL,
+                regDate DATE NOT NULL,
+                regFPaid DECIMAL NOT NULL,
+                regPMode TEXT NOT NULL,
+                FOREIGN KEY (partID) REFERENCES Participant(partID)
             );
 
         """)
@@ -61,6 +70,24 @@ def init_db():
 
 class Database:
     """Same pattern for each entity: INSERT, SELECT, UPDATE, DELETE."""
+    
+    def registration_fee(self, participant_id):
+        sql = """
+        SELECT Event.evRFee, Participant.partDRate
+        FROM Participant
+        JOIN Event ON Event.evCode = Participant.evCode
+        WHERE Participant.partID = ?
+        """
+
+        with connect() as db:
+            row = db.execute(sql, (participant_id,)).fetchone()
+
+        if row is None:
+            return None
+
+        return round(float(row["evRFee"]) - float(row["partDRate"]), 2)
+
+
     def add(self, table, info, values):
         names = [field["name"] for field in info["fields"]]
         sql = f"INSERT INTO {info['sql_table']} ({', '.join(names)}) VALUES ({', '.join('?' for _ in values)})"

@@ -10,7 +10,6 @@
     <main>
         <nav>
             {% for key, item in tables.items() %}<a href="{{ url_for('records', table=key) }}">{{ item.title }}</a>{% endfor %}
-            <a href="{{ url_for('borrowing') }}">Borrow / Return</a>
         </nav>
         {% for message in get_flashed_messages() %}<p class="message">{{ message }}</p>{% endfor %}
         {% block content %}{% endblock %}

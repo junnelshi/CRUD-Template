@@ -14,7 +14,10 @@
                 {% endfor %}
             </select>
             {% else %}
-            <input name="{{ field.name }}" type="{{ field.type or 'text' }}" required
+            <input name="{{ field.name }}" type="{{ field.type or 'text' }}"
+                   {% if table == "registration" and field.name == "regFPaid" %}
+                   placeholder="Calculated automatically" readonly
+                   {% else %}required{% endif %}
                    {% if field.letters_only %}pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+" title="Use letters only"{% endif %}>
             {% endif %}
         </label>

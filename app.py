@@ -8,7 +8,7 @@ init_db()
 
 @app.route("/")
 def home():
-    return redirect(url_for("records", table="author"))
+    return redirect(url_for("records", table="event"))
 
 
 def names_are_valid(info, values):
@@ -24,7 +24,21 @@ def records(table):
         return "Unknown table", 404
     info = TABLES[table]
     if request.method == "POST":
-        values = [request.form.get(field["name"], "").strip() for field in info["fields"]]
+        values = [request.form.get(field["name"], "").strip()
+                  for field in info["fields"]]
+
+        if table == "registration":
+            fee = DB.registration_fee(request.form.get("partID", ""))
+            if fee is None:
+                flash("Choose a valid participant.")
+                return redirect(url_for("records", table=table))
+
+            fee_index = next(
+                i for i, field in enumerate(info["fields"])
+                if field["name"] == "regFPaid"
+            )
+            values[fee_index] = str(fee)
+
         # No ID means add a new row; an ID means update that row.
         record_id = request.form.get("record_id")
         if not all(values):
@@ -38,6 +52,8 @@ def records(table):
             DB.add(table, info, values)
             flash("Record added.")
         return redirect(url_for("records", table=table))
+        
+    
 
     search = request.args.get("search", "").strip()
     rows = DB.list(table, info, search)
@@ -73,35 +89,6 @@ def delete(table, record_id):
     except Exception:
         flash("Cannot delete this record while another record uses it.")
     return redirect(url_for("records", table=table))
-
-
-@app.route("/borrowing", methods=["GET", "POST"])
-def borrowing():
-    if request.method == "POST":
-        student_id = request.form.get("studID", "")
-        book_id = request.form.get("bookID", "")
-        if student_id and book_id and DB.available(book_id) > 0:
-            DB.borrow(student_id, book_id)
-            flash("Book borrowed.")
-        else:
-            flash("Choose a student and an available book.")
-        return redirect(url_for("borrowing"))
-
-    students = DB.list("students", TABLES["students"])
-    books = DB.books_with_availability()
-    status = request.args.get("status", "Borrowed")
-    if status not in ("Borrowed", "Returned", "All"):
-        status = "Borrowed"
-    records = DB.borrowing_records(status)
-    return render_template("borrowing.html", tables=TABLES, students=students,
-                           books=books, records=records, status=status)
-
-
-@app.post("/borrowing/return/<int:borrow_id>")
-def return_book(borrow_id):
-    DB.return_book(borrow_id)
-    flash("Book returned.")
-    return redirect(url_for("borrowing"))
 
 
 if __name__ == "__main__":
